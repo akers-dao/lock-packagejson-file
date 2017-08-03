@@ -13,9 +13,9 @@ const excludedDependencies = ['git', 'sassypam'];
 
 program
     .version('0.1.0')
-    .usage('[-l -n] lock-package.js')
-    .option('-l, --lock', 'Lock package.json dependencies', lockPackageJSONDependencies)
-    .option('-n, --ncu', 'Check npm module updates', checkNPMUpdates)
+    .usage('[-u -f]')
+    .option('-u, --update', 'Check for dependency updates.', checkNPMUpdates)
+    .option('-f, --file', 'Package.json file path', lockPackageJSONDependencies)
     .parse(process.argv);
 
 function lockPackageJSONDependencies() {
@@ -65,7 +65,7 @@ function getListDependencies() {
  */
 function loadPackageJSONFile(list) {
     return new Promise((resolve, reject) => {
-        const packageJSONFilePath = process.argv[2] || 'package.json';
+        const packageJSONFilePath = process.argv[3] || 'package.json';
         fs.readJSON(packageJSONFilePath)
             .then(packageObj => {
                 const { dependencies, devDependencies } = packageObj

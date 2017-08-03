@@ -9,6 +9,7 @@ const program = require('commander');
 const log = console.log;
 const error = chalk.bold.red;
 const success = chalk.bold.green;
+const warn = chalk.bold.yellow;
 const excludedDependencies = ['git', 'sassypam'];
 
 program
@@ -33,26 +34,29 @@ function lockPackageJSONDependencies() {
  */
 function getListDependencies() {
     return new Promise((resolve, reject) => {
-        exec('npm list --depth=0', (err, stdout, stderr) => {
+        const path = process.argv[3] ? process.argv[3].replace('/package.json', '') : '';
+
+        exec(`npm list --depth=0 --json`, { cwd: path }, (err, stdout, stderr) => {
             if (err) {
                 reject(err)
                 return;
             }
 
-            const list = stdout.replace(/[├── └── ]/g, ',')
-                .split(',')
-                .filter(name => !!name.length)
-                .slice(2)
-                .filter(name =>
-                    !excludedDependencies.some(dep => new RegExp(dep, 'g').test(name))
-                )
-                .map(name => name.replace(/\n/g, ''))
-                .map(file => {
-                    const [versionName, name, version] = file.match(/(.*[^.\d])(\d+[.\d]*)/i)
+            const npmList = JSON.parse(stdout);
 
-                    return Object.assign({}, { versionName, name: name.slice(0, -1), version })
-                })
-            resolve(list)
+            const dependenciesList = ['dependencies', 'devDependencies'].reduce((list, propName) => {
+                for (const key in npmList[propName]) {
+                    const hasExclusion = excludedDependencies.some(dep => new RegExp(dep, 'g').test(key));
+
+                    if (npmList[propName].hasOwnProperty(key) && !hasExclusion) {
+                        const dependencyInfo = npmList[propName][key];
+                        list.push({ name: key, version: dependencyInfo.version })
+                    }
+                }
+                return list;
+            }, []);
+
+            resolve(dependenciesList);
         });
     })
 }
@@ -96,15 +100,21 @@ function writeToPackageJSONFile({ packageJSONFilePath, jsonFile }) {
     })
 }
 
+/**
+ * Check NPM for dependency updates
+ * 
+ */
 function checkNPMUpdates() {
+    const path = process.argv[3] || 'package.json';
+
     ncu.run({
         // Always specify the path to the package file 
-        packageFile: 'package.json',
+        packageFile: path,
         // Any command-line option can be specified here. 
         // These are set by default: 
         silent: true,
         jsonUpgraded: true
     }).then((upgraded) => {
-        console.log('dependencies to upgrade:', upgraded);
+        log(warn('Dependencies to upgrade:'), upgraded);
     });
 }
